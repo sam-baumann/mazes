@@ -176,7 +176,7 @@ class maze:
         #animate the maze generation
         ani = animation.FuncAnimation(fig, animate, generator_func(self, animate = True), interval = 100, repeat = False)
         if fname:
-            ani.save(fname, writer='imagemagick', fps=10)
+            ani.save('./maze_images/' + fname, writer='imagemagick', fps=10)
         else:
             plt.show()
 
@@ -186,7 +186,7 @@ def dfs_generate(m, animate = False):
     frames = []
 
     stack = []
-    curr_cell = m[0][0]
+    curr_cell = random.choice(random.choice(m.maze_arr))
     curr_cell.visited = True
     stack.append(curr_cell)
 
@@ -208,8 +208,8 @@ def dfs_generate(m, animate = False):
             neighbor.visited = True
             stack.append(neighbor)
         
-        if animate:
-            frames.append(deepcopy(m))
+            if animate:
+                frames.append(deepcopy(m))
     if animate:
         return frames
 
@@ -239,15 +239,69 @@ def prims_generate(m, animate = False):
                 unvisited_cell.visited = True
                 walls.extend([x for x in unvisited_cell.walls if (x not in walls) and x.exists])
                 next_wall.remove()
-        if animate:
-            frames.append(deepcopy(m))
+                if animate:
+                    frames.append(deepcopy(m))
     if animate:
         return frames
 
+def wilsons_generate(m, animate = False):
+    #we will use loop-erased random walks to generate the maze
+    frames = []
+    cells_left = m.width * m.height
 
+    #pick a random cell to mark as visited
+    curr_cell = random.choice(random.choice(m.maze_arr))
+    curr_cell.visited = True
+    cells_left -= 1
+
+    while cells_left > 0:
+        #pick an unvisited cell and start a loop-erased random walk
+        #we can actually pick any cell and retain uniformity, so pick the first unvisited cell we can find in the maze
+        for i in range(m.width):
+            for j in range(m.height):
+                if not m[i][j].visited:
+                    curr_cell = m[i][j]
+                    break
+        walk = [curr_cell]
+        failed = []
+        while not curr_cell.visited:
+            #create a random ordering of the neighbors
+            order = np.arange(4)
+            np.random.shuffle(order)
+
+            #find the first neighbor that isn't in the walk
+            neighbor = None
+            for i in order:
+                neighbor = curr_cell.neighbors[i]
+                if neighbor is not None and neighbor not in walk and neighbor not in failed:
+                    curr_cell = neighbor
+                    walk.append(curr_cell)
+                    break
+                neighbor = None
+            if neighbor is None:
+                #if we can't find a neighbor, we've hit a dead end
+                #remove the last cell from the walk
+                walk.pop()
+                failed.append(curr_cell)
+                curr_cell = walk[-1]
+        #now that we've found a cell in the maze, we can add the walk to the maze
+        for i, cell in enumerate(walk[:-1]):
+            #erase the wall between the current cell and the next cell
+            next_cell = walk[i + 1]
+            for j, neighbor in enumerate(cell.neighbors):
+                if neighbor == next_cell:
+                    cell.remove_wall(j)
+                    if animate:
+                        frames.append(deepcopy(m))
+                    break
+            cell.visited = True
+            cells_left -= 1
+        
+    if animate:
+        return frames
 #create a maze and plot it
 sys.setrecursionlimit(10000)
-m = maze(50)
-#m.create_generation_animation(prims_generate)
-prims_generate(m)
-m.plot()
+m = maze(15)
+m.create_generation_animation(wilsons_generate, fname = "wilsons.gif")
+#wilsons_generate(m)
+#m.plot()
