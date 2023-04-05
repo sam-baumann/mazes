@@ -1,14 +1,17 @@
 import random
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+import matplotlib.animation as animation
 from copy import deepcopy
 import numpy as np
+import sys
 
 fig, ax = plt.subplots()
 
 class wall:
     def __init__(self):
         self.exists = True
+        self.cells = set()
+        self.ln = None
     
     def remove(self):
         self.exists = False
@@ -32,6 +35,7 @@ class cell:
             'E': 2,
             'W': 3
         }
+        self.ln = None
 
     def index_from_dir_or_int(self, index):
         if isinstance(index, str):
@@ -77,15 +81,19 @@ class maze:
                     curr_cell.walls.append(wall())
                 else: #otherwise, we can just use the north neighbor's south wall
                     curr_cell.walls.append(self.maze_arr[x][y - 1]['S'])
+                curr_cell.walls[-1].cells.add(curr_cell)
                 #all cells create their south wall
                 curr_cell.walls.append(wall())
+                curr_cell.walls[-1].cells.add(curr_cell)
                 #all cells create their east wall
                 curr_cell.walls.append(wall())
+                curr_cell.walls[-1].cells.add(curr_cell)
                 #if we are the leftmost column, we have to create our west wall
                 if x == 0:
                     curr_cell.walls.append(wall())
                 else: #otherwise, we can just use the west neighbor's east wall
                     curr_cell.walls.append(self.maze_arr[x - 1][y]['E'])
+                curr_cell.walls[-1].cells.add(curr_cell)
 
         #cell (0, 0) will not have a west wall
         self.maze_arr[0][0]['W'].remove()
@@ -105,21 +113,37 @@ class maze:
                 y = (self.height - j - 1) * cell_size
                 walls_count = 0
                 if curr_cell['N']:
-                    ax.plot([x, x + cell_size], [y + cell_size, y + cell_size], 'k')
+                    if curr_cell['N'].ln is None:
+                        curr_cell['N'].ln, = ax.plot([x, x + cell_size], [y + cell_size, y + cell_size], 'k')
                     walls_count += 1
+                elif curr_cell['N'].ln is not None:
+                    curr_cell['N'].ln.remove()
+                    curr_cell['N'].ln = None
                 if curr_cell['S']:
-                    ax.plot([x, x + cell_size], [y, y], 'k')
+                    if curr_cell['S'].ln is None:
+                        curr_cell['S'].ln, = ax.plot([x, x + cell_size], [y, y], 'k')
                     walls_count += 1
+                elif curr_cell['S'].ln is not None:
+                    curr_cell['S'].ln.remove()
+                    curr_cell['S'].ln = None
                 if curr_cell['E']:
-                    ax.plot([x + cell_size, x + cell_size], [y, y + cell_size], 'k')
+                    if curr_cell['E'].ln is None:
+                        curr_cell['E'].ln, = ax.plot([x + cell_size, x + cell_size], [y, y + cell_size], 'k')
                     walls_count += 1
+                elif curr_cell['E'].ln is not None:
+                    curr_cell['E'].ln.remove()
+                    curr_cell['E'].ln = None
                 if curr_cell['W']:
-                    ax.plot([x, x], [y, y + cell_size], 'k')
+                    if curr_cell['W'].ln is None:
+                        curr_cell['W'].ln, = ax.plot([x, x], [y, y + cell_size], 'k')
                     walls_count += 1
+                elif curr_cell['W'].ln is not None:
+                    curr_cell['W'].ln.remove()
+                    curr_cell['W'].ln = None
 
                 #if all walls are drawn, fill in the cell
                 if walls_count == 4:
-                    ax.fill([x, x + cell_size, x + cell_size, x], [y, y, y + cell_size, y + cell_size], 'k')
+                    curr_cell.ln, = ax.fill([x, x + cell_size, x + cell_size, x], [y, y, y + cell_size, y + cell_size], 'k')
 
         ax.set_aspect('equal')
         ax.axis('off')
@@ -128,6 +152,31 @@ class maze:
             plt.savefig("./maze_images/" + fname)
         elif not animate: 
             plt.show()
+        else:
+            return ax
+    
+    def update_plot(self, m):
+        #iterate the cells, updating the plot
+        for i in range(self.width):
+            for j in range(self.height):
+                curr_cell = m[i][j]
+                for wall in curr_cell.walls:
+                    if wall.ln is not None and not wall.exists:
+                        wall.ln.set_visible(False)
+                        plt.draw()
+    
+    def create_generation_animation(self, generator_func, fname = None):
+        def animate(frame):
+            ax.clear()
+            frame.plot(animate = True)
+            return ax
+        #animate the maze generation
+        ani = animation.FuncAnimation(fig, animate, generator_func(self, animate = True), interval = 100, repeat = False)
+        if fname:
+            ani.save(fname, writer='imagemagick', fps=10)
+        else:
+            plt.show()
+
 
 def dfs_generate(m, animate = False):
     #initially used recursive implementation but it reached max recursion depth
@@ -164,16 +213,6 @@ def dfs_generate(m, animate = False):
 
 
 #create a maze and plot it
+sys.setrecursionlimit(10000)
 m = maze(10)
-#dfs_generate(m)
-#m.plot()
-
-def animate(frame):
-    curr_maze = frame
-    ax.clear()
-    curr_maze.plot(animate = True)
-    return ax
-
-#animate the maze generation
-ani = FuncAnimation(fig, animate, dfs_generate(m, animate = True), interval = 100, repeat = False)
-plt.show()
+m.create_generation_animation(dfs_generate, fname="test.gif")
