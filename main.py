@@ -45,6 +45,9 @@ class cell:
     def remove_wall(self, direction):
         self.walls[self.index_from_dir_or_int(direction)].remove()
 
+    def get_existing_walls(self):
+        return [wall for wall in self.walls if wall]
+
     def __getitem__(self, index):
         return self.walls[self.index_from_dir_or_int(index)]
 
@@ -210,9 +213,41 @@ def dfs_generate(m, animate = False):
     if animate:
         return frames
 
+def prims_generate(m, animate = False):
+    frames = []
+
+    #pick a random cell
+    curr_cell = random.choice(random.choice(m.maze_arr))
+    curr_cell.visited = True
+
+    #add all of its walls to the wall list
+    walls = [x for x in curr_cell.walls]
+
+    while len(walls):
+        next_wall = random.choice(walls)
+        walls.remove(next_wall)
+        #if one of the cells is visited, remove the wall
+        #first check to make sure it has 2 neighbors, otherwise it's a border wall
+        if len(next_wall.cells) == 2:
+            unvisited_cell = None
+            cells = list(next_wall.cells)
+            if cells[0].visited ^ cells[1].visited:
+                for cell in next_wall.cells:
+                    if not cell.visited:
+                        unvisited_cell = cell
+            if unvisited_cell:
+                unvisited_cell.visited = True
+                walls.extend([x for x in unvisited_cell.walls if (x not in walls) and x.exists])
+                next_wall.remove()
+        if animate:
+            frames.append(deepcopy(m))
+    if animate:
+        return frames
 
 
 #create a maze and plot it
 sys.setrecursionlimit(10000)
-m = maze(10)
-m.create_generation_animation(dfs_generate, fname="test.gif")
+m = maze(50)
+#m.create_generation_animation(prims_generate)
+prims_generate(m)
+m.plot()
