@@ -174,9 +174,9 @@ class maze:
             frame.plot(animate = True)
             return ax
         #animate the maze generation
-        ani = animation.FuncAnimation(fig, animate, generator_func(self, animate = True), interval = 100, repeat = False)
+        ani = animation.FuncAnimation(fig, animate, generator_func(self, animate = True), interval = 500, repeat = False)
         if fname:
-            ani.save('./maze_images/' + fname, writer='imagemagick', fps=10)
+            ani.save('./maze_images/' + fname, writer='imagemagick', fps=7)
         else:
             plt.show()
 
@@ -299,9 +299,41 @@ def wilsons_generate(m, animate = False):
         
     if animate:
         return frames
+
+def ca_solver(m, animate = False):
+    #treat each cell as a cellular automaton. loop over the cells and if there are 3 walls, add the fourth
+    frames = []
+    frames.append(deepcopy(m))
+
+    walls_added = 1
+    while walls_added > 0:
+        walls_added = 0
+        old_maze = deepcopy(m)
+        for i in range(m.width):
+            for j in range(m.height):
+                curr_cell = old_maze[i][j]
+                new_cell = m[i][j]
+                walls_sum = 0
+                for wall in curr_cell.walls:
+                    if wall.exists:
+                        walls_sum += 1
+                if walls_sum == 3:
+                    for wall in new_cell.walls:
+                        if not wall.exists:
+                            wall.exists = True
+                            walls_added += 1
+                            break
+        if animate:
+            frames.append(deepcopy(m))
+    if animate:
+        return frames
+                            
+
+
 #create a maze and plot it
 sys.setrecursionlimit(10000)
 m = maze(15)
-m.create_generation_animation(wilsons_generate, fname = "wilsons.gif")
-#wilsons_generate(m)
-#m.plot()
+wilsons_generate(m)
+m.create_generation_animation(ca_solver, fname = 'ca_solver.gif')
+m.plot("ca_solved.png")
+
