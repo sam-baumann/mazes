@@ -4,6 +4,7 @@ import matplotlib.animation as animation
 from copy import deepcopy
 import numpy as np
 import sys
+import argparse
 
 fig, ax = plt.subplots()
 
@@ -302,8 +303,7 @@ def wilsons_generate(m, animate = False):
 
 def ca_solver(m, animate = False):
     #treat each cell as a cellular automaton. loop over the cells and if there are 3 walls, add the fourth
-    frames = []
-    frames.append(deepcopy(m))
+    frames = [deepcopy(m) for i in range(5)]
 
     walls_added = 1
     while walls_added > 0:
@@ -329,11 +329,54 @@ def ca_solver(m, animate = False):
         return frames
                             
 
+parser = argparse.ArgumentParser(description = 'Generate a maze.')
 
-#create a maze and plot it
+parser.add_argument('-a', '--algorithm', type = str, choices=['dfs', 'prims', 'wilsons'], required=True,
+                    help = 'The algorithm to use to generate the maze.')
+
+parser.add_argument('-s', '--size', type = int, required=True,
+                    help = 'The size of the maze.')
+
+parser.add_argument('-p', '--plot', action = 'store_true', default = False,
+                    help = 'Plot the maze. Default is False.')
+
+parser.add_argument('-m', '--animate', action = 'store_true', default = False,
+                    help = 'Animate the maze generation. Default is False.')
+
+parser.add_argument('-o', '--output', type = str, default=None,
+                    help='Filename (without extension) to save plot or animation to.')
+
+args = parser.parse_args()
+
+algorithm = args.algorithm
+size = args.size
+plot = args.plot
+animate = args.animate
+output = args.output
+
+generators_dict = {
+    'dfs': dfs_generate,
+    'prims': prims_generate,
+    'wilsons': wilsons_generate
+}
+
+generator = generators_dict[algorithm]
+
+#this is needed to deepcopy larger maze structures, which is required to animate them
 sys.setrecursionlimit(10000)
-m = maze(15)
-wilsons_generate(m)
-m.create_generation_animation(ca_solver, fname = 'ca_solver.gif')
-m.plot("ca_solved.png")
+#create maze
+m = maze(size)
 
+if animate:
+    anim_output = None
+    if output is not None:
+        anim_output = output + '.gif'
+    m.create_generation_animation(generator, anim_output)
+else:
+    generator(m)
+
+if plot:
+    plot_output = None
+    if output is not None:
+        plot_output = output + '.png'
+    m.plot(plot_output)
